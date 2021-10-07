@@ -5,9 +5,9 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.11.1
+    jupytext_version: 1.11.5
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 language_info:
@@ -19,7 +19,7 @@ language_info:
   name: python
   nbconvert_exporter: python
   pygments_lexer: ipython3
-  version: 3.8.3
+  version: 3.9.7
 ---
 
 # Facebook Network Analysis
@@ -61,7 +61,12 @@ The graph is drawn in order to get a better understanding of how the facebook ci
 ```{code-cell} ipython3
 plt.figure(figsize=(15,9))  # set up the plot size
 plt.axis('off')  # remove border around the graph
-nx.draw_networkx(G, node_size=10, with_labels=False, width=0.15)
+import time
+tic = time.time()
+pos = nx.spring_layout(G, iterations=15, seed=1721)
+nx.draw_networkx(G, pos=pos, node_size=10, with_labels=False, width=0.15)
+toc = time.time()
+toc - tic
 ```
 
 ## Basic topological attributes
@@ -82,19 +87,33 @@ Also, the average degree of a node can be seen.
 * This has been calculated by creating a list of all the degrees of the nodes and using `numpy.array` to find the mean of the created list.
 
 ```{code-cell} ipython3
-np.array(list(dict(G.degree()).values())).mean()
+np.mean([d for _, d in G.degree()])
 ```
 
 * The diameter is calculated now. As known, it is the longest shortest path of the graph. That means in order to connect from any node to another one we would have to traverse 8 edges or less.
 
 ```{code-cell} ipython3
-nx.diameter(G)
+tic = time.time()
+sp = dict(nx.all_pairs_shortest_path_length(G))
+toc = time.time()
+toc - tic
+```
+
+```{code-cell} ipython3
+sp
+```
+
+```{code-cell} ipython3
+max(nx.eccentricity(G, sp=sp).values())
 ```
 
 * Next up, the average path length is found. In detail, it is defined as the average of the shortest paths for all pairs of nodes. That means that generally in order to reach from one node to another node, 3 or 4 edges will be crossed.
 
 ```{code-cell} ipython3
+tic = time.time()
 nx.average_shortest_path_length(G)
+toc = time.time()
+toc - tic
 ```
 
 Now a histogram of the shortest paths lenghts' relative frequencies will be created to see how those lenghts are distributed.
@@ -112,6 +131,38 @@ for node_start in shortest_paths.keys():
         if path_length > 0:  # paths with 0 length are no use
             frequencies[path_length-1] += 1  # increase the frequency of the particular path length by one
 frequencies = [num/sum(frequencies) for num in frequencies]  # find the percentage of each path length
+```
+
+```{code-cell} ipython3
+frequencies
+```
+
+```{code-cell} ipython3
+np.unique(list(sp[0].values()), return_counts=True)
+```
+
+```{code-cell} ipython3
+path_lengths = np.zeros(8)
+for node in sp.keys():
+    pl = np.bincount(list(sp[node].values()), minlength=9)
+    path_lengths += pl[1:]
+path_lengths
+```
+
+```{code-cell} ipython3
+plt.bar(np.arange(1, 9), height=path_lengths)
+```
+
+```{code-cell} ipython3
+path_lengths = np.zeros(9)
+for node in sp.keys():
+    pl, cnts = np.unique(list(sp[node].values()), return_counts=True)
+    path_lengths[pl] += cnts
+path_lengths
+```
+
+```{code-cell} ipython3
+plt.bar(np.arange(1, 9), height=path_lengths[1:])
 ```
 
 * Showcasing the results. Clearly, the distribution of the percentages is skewed on the right. The majority of the shortest path lengths are from $2$ to $5$ edges long. Also, it's highly unlikely for a pair of nodes to have a shortest path of length 8 (diameter length) as the likelihood is less than $0.1$%.
@@ -188,7 +239,10 @@ Betweenness centrality measures the number of times a node lies on the shortest 
 * Now, the nodes with the $8$ highest betweenness centralities will be calculated and shown with their centrality values:
 
 ```{code-cell} ipython3
+tic = time.time()
 betweenness_centrality = nx.centrality.betweenness_centrality(G)  # save results in a variable to use again 
+toc = time.time()
+print(toc - tic)
 (sorted(betweenness_centrality.items(), key=lambda item: item[1], reverse=True))[:8]
 ```
 
@@ -226,7 +280,10 @@ The closeness centrality measure is very important for the monitoring of the spr
 * The nodes with the highest closeness centralities will be found now:
 
 ```{code-cell} ipython3
+tic = time.time()
 closeness_centrality = nx.centrality.closeness_centrality(G)  # save results in a variable to use again 
+toc = time.time()
+print(toc - tic)
 (sorted(closeness_centrality.items(), key=lambda item: item[1], reverse=True))[:8]
 ```
 
@@ -268,7 +325,10 @@ Eigenvector centrality is the metric to show how connected a node is to other im
 * The nodes with the highest eigenvector centralities will be examined now:
 
 ```{code-cell} ipython3
+tic = time.time()
 eigenvector_centrality = nx.centrality.eigenvector_centrality(G)  # save results in a variable to use again 
+toc = time.time()
+print(toc - tic)
 (sorted(eigenvector_centrality.items(), key=lambda item: item[1], reverse=True))[:10]
 ```
 
@@ -367,6 +427,11 @@ for edge in nx.bridges(G):
 len(bridges)
 ```
 
+```{code-cell} ipython3
+bridges = list(nx.bridges(G))
+len(bridges)
+```
+
 The existence of so many bridges is due to the fact that this network only contains the spotlight nodes and the friends of them. As a result, some friends of spotlight nodes are only connected to a spotlight node, making that edge a bridge.
 
 Also, the edges that are local bridges are saved in a list and their number is printed. In detaill, an edge joining two nodes $C$ and $D$ 
@@ -377,6 +442,10 @@ local_bridges = []
 for edge in nx.local_bridges(G):
     local_bridges.append(eval( '(' + str(edge[0]) + '),(' + str(edge[1]) + ')' ))  # save the local bridge as a tuple
 len(local_bridges)
+```
+
+```{code-cell} ipython3
+list(nx.local_bridges(G))
 ```
 
 Showcasing the bridges and local bridges in the network now. The bridges can be seen with the red color and the local bridges with the green color. Black edges are neither local bridges nor bridges.
