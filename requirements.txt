@@ -8,6 +8,7 @@ matplotlib
 pandas
 ipython!=8.7.0
 pygraphviz
+sympy
 
 # For testing and site generation
 nbval
